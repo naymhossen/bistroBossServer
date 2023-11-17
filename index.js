@@ -31,6 +31,17 @@ async function run() {
     const cartsCollection = client.db("bistroBoss").collection("carts");
     const usersCollection = client.db("bistroBoss").collection("users");
 
+    //////// Admin Route Manage Item Function Start \\\\\\\\\
+
+    app.delete("/api/menus/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    //////// Admin Route Manage Item Function Start \\\\\\\\\
+
     /// JWT Related \\\
     app.post("/jwt", async (req, res) => {
       const user = req.body;
