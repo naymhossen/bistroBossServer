@@ -85,15 +85,14 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
     /// Admin secure API
-    app.get("/users/admin/:email", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
       const email = req?.params?.email;
-      console.log(email, req.decoded.email);
       if (email !== req?.decoded?.email) {
         return res.status(403).send({ message: "forbidden access" });
       }
@@ -144,6 +143,13 @@ async function run() {
       const result = await menuCollection.find().toArray();
       res.send(result);
     });
+
+    app.post("/api/menus", async (req, res) => {
+      const items = req.body;
+      const result = await menuCollection.insertOne(items);
+      res.send(result);
+    });
+
     app.get("/api/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
       res.send(result);
