@@ -1,9 +1,11 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const jwt = require("jsonwebtoken");
-require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_PAYMENT_SECRET_KEY);
+// console.log("Stripe API key",stripe, 'Stripe ApI');
 const port = process.env.PORT || 3000;
 
 ///// Middle Ware /////
@@ -30,6 +32,49 @@ async function run() {
     const reviewCollection = client.db("bistroBoss").collection("reviews");
     const cartsCollection = client.db("bistroBoss").collection("carts");
     const usersCollection = client.db("bistroBoss").collection("users");
+    const paymentsCollection = client.db("bistroBoss").collection("payments");
+
+    ///////// Stripe Payment Start \\\\\\\\
+
+    app.get("/payments/:email", async (req, res) => {
+      const query = { email: req.params.email };
+      // if (req.params.email !== req.decoded.email) {
+      //   return res.status(403).send({ message: "forbidden access" });
+      // }
+      const history = await paymentsCollection.find(query).toArray();
+      res.send(history);
+    });
+
+    // User Payment History Post server
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentsCollection.insertOne(payment);
+
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const deleteResult = await cartsCollection.deleteMany(query);
+      res.send({ paymentResult, deleteResult });
+    });
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    ////////// Stripe Payment End \\\\\\\\\
 
     //////// Admin Route Manage Item Function Start \\\\\\\\\
 
@@ -64,7 +109,7 @@ async function run() {
       res.send(result);
     });
 
-    //////// Admin Route Manage Item Function Start \\\\\\\\\
+    //////// Admin Route Manage Item Function End \\\\\\\\\
 
     /// JWT Related \\\
     app.post("/jwt", async (req, res) => {
