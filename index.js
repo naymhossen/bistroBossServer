@@ -74,9 +74,70 @@ async function run() {
       });
     });
 
-    ////////// Stripe Payment End \\\\\\\\\
-
     //////// Admin Route Manage Item Function Start \\\\\\\\\
+
+    // Using aggregate pipeline
+    app.get("/orderStates", async (req, res) => {
+      const result = await paymentsCollection
+        .aggregate([
+          {
+            $unwind: "$menuItemIds",
+          },
+          {
+            $lookup: {
+              from: "menu",
+              localField: "menuItemIds",
+              foreignField: "_id",
+              as: "menusItem",
+            },
+          },
+          {
+            $unwind: "$menusItem",
+          },
+          // {
+          //   $group: {
+          //     _id: '$menusItem.category',
+          //     quantity:{ $sum: 1 },
+          //     revenue: { $sum: '$menusItem.price'} 
+          //   }
+          // },
+          // {
+          //   $project: {
+          //     _id: 0,
+          //     category: '$_id',
+          //     quantity: '$quantity',
+          //     revenue: '$revenue'
+          //   }
+          // }
+        ])
+        .toArray();
+
+      res.send(result);
+    });
+
+    // States and analytics
+    app.get("/adminStates", async (req, res) => {
+      const users = await usersCollection.estimatedDocumentCount();
+      const menuItems = await menuCollection.estimatedDocumentCount();
+      const orders = await paymentsCollection.estimatedDocumentCount();
+
+      const result = await paymentsCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: "$price",
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+      res.send({ users, menuItems, orders, revenue });
+    });
+    ////////// Stripe Payment End \\\\\\\\\
 
     app.delete("/api/menus/:id", async (req, res) => {
       const id = req.params.id;
